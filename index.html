@@ -6,9 +6,15 @@
   <title>Deadline Dragon — Run For Your Deadline!</title>
   <meta name="description" content="Survive the endless campus sprint, solve rapid-fire academic tasks under pressure, and outrun the Deadline Dragon.">
   <meta property="og:title" content="Deadline Dragon">
+  <meta property="og:site_name" content="Deadline Dragon">
   <meta property="og:description" content="Run free. Grab a task and you have seconds to solve it, or the dragon gets you.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Deadline Dragon">
+  <meta name="twitter:description" content="Run free. Grab a task and you have seconds to solve it, or the dragon gets you.">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <style>
     /* ==========================================================================
        RESET & BASE LAYOUT
@@ -1037,7 +1043,7 @@
     .unlock-banner.active {
       opacity: 1;
       transform: translateX(-50%) translateY(0);
-      pointer-events: auto;
+      pointer-events: none;
     }
 
     .unlock-banner-icon {
@@ -1259,6 +1265,10 @@
       top: 52px;
       padding: 6px 14px;
     }
+    body.device-mobile.orient-landscape .unlock-banner {
+      top: auto;
+      bottom: max(12px, env(safe-area-inset-bottom));
+    }
     body.device-mobile.orient-landscape #task-panel {
       max-height: 92dvh;
       overflow-y: auto;
@@ -1370,12 +1380,28 @@
         font-size: 15px;
       }
       .milestone-banner {
-        top: 98px;
+        top: calc(max(8px, env(safe-area-inset-top)) + 116px);
         padding: 8px 16px;
         width: min(90%, 340px);
       }
       .milestone-banner-title {
         font-size: 15px;
+      }
+      .unlock-banner {
+        top: auto;
+        bottom: max(18px, env(safe-area-inset-bottom));
+        width: min(92%, 340px);
+        padding: 9px 14px;
+        transform: translateX(-50%) translateY(30px);
+      }
+      .unlock-banner.active {
+        transform: translateX(-50%) translateY(0);
+      }
+      #close-call-banner {
+        top: calc(max(8px, env(safe-area-inset-top)) + 116px);
+        font-size: 13px;
+        padding: 7px 14px;
+        white-space: nowrap;
       }
       #watermark {
         bottom: max(8px, env(safe-area-inset-bottom));
@@ -1681,11 +1707,14 @@
             Ready to test your academic reflexes in the real world?
           </p>
 
-          <div style="display: flex; gap: 8px; width: 100%;">
-            <button id="btn-continue-alumni" class="btn-primary" style="background: linear-gradient(135deg, #059669, #047857); flex: 1;">
+          <div style="display: flex; gap: 8px; width: 100%; flex-wrap: wrap;">
+            <button id="btn-continue-alumni" class="btn-primary" style="background: linear-gradient(135deg, #059669, #047857); flex: 1 1 180px;">
               <span>🎓 Keep Playing in Alumni Mode 🔥</span>
             </button>
-            <button id="btn-grad-restart" class="btn-primary btn-secondary" style="width: auto; padding: 0 16px;">
+            <button id="btn-grad-home" class="btn-primary btn-secondary" style="width: auto; padding: 0 14px;">
+              <span>🏠 Home</span>
+            </button>
+            <button id="btn-grad-restart" class="btn-primary btn-secondary" style="width: auto; padding: 0 14px;">
               <span>New Run</span>
             </button>
           </div>
@@ -1738,15 +1767,18 @@
             </div>
           </div>
 
-          <div class="btn-group">
+          <div class="btn-group" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; width: 100%;">
+            <button id="btn-home-lose" class="btn-primary btn-secondary">
+              <span>🏠 Return Home</span>
+            </button>
+            <button id="btn-try-again" class="btn-primary btn-danger">
+              <span>⚡ Try Again</span>
+            </button>
             <button id="btn-wardrobe-lose" class="btn-primary btn-secondary" style="background: #f1f5f9; color: #2563eb; border-color: #bfdbfe;">
               <span>👔 Wardrobe</span>
             </button>
             <button id="btn-copy-result" class="btn-primary btn-secondary">
               <span>📋 Copy Result</span>
-            </button>
-            <button id="btn-try-again" class="btn-primary btn-danger">
-              <span>⚡ Try Again</span>
             </button>
           </div>
         </div>
@@ -2469,8 +2501,8 @@
       deviceProfile.orientation = isPortrait ? 'portrait' : 'landscape';
       deviceProfile.isTouch = hasTouch;
       deviceProfile.dpr = Math.min(window.devicePixelRatio || 1, 2);
-      deviceProfile.spawnSpacingMult = (type === 'mobile' && isPortrait) ? 1.18 : 1.0;
-      deviceProfile.hudTopSafe = (type === 'mobile' && isPortrait) ? 104 : (type === 'mobile' ? 56 : 68);
+      deviceProfile.spawnSpacingMult = (type === 'mobile' && isPortrait) ? 1.25 : 1.0;
+      deviceProfile.hudTopSafe = (type === 'mobile' && isPortrait) ? 118 : (type === 'mobile' ? 56 : 68);
 
       const body = document.body;
       body.classList.remove('device-mobile', 'device-tablet', 'device-laptop', 'orient-portrait', 'orient-landscape', 'input-touch', 'input-pointer');
@@ -3208,9 +3240,16 @@
       }, 180);
     }
 
+    function pickDifferentDragonTaunt() {
+      const candidates = DRAGON_TAUNTS.filter(t => t !== dragonBubble.text);
+      const pool = candidates.length > 0 ? candidates : DRAGON_TAUNTS;
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
     function dragonSay(text, duration = 3.2) {
       dragonBubble.text = text;
       dragonBubble.timer = duration;
+      dragonBubble.nextTauntTimer = Math.max(4.2, duration + 1.4);
     }
 
     /* ==========================================================================
@@ -3642,7 +3681,7 @@
 
       dragonBubble.text = "Did you even start?";
       dragonBubble.timer = 0;
-      dragonBubble.nextTauntTimer = 8.0;
+      dragonBubble.nextTauntTimer = 4.5;
 
       nextTaskSpawnTimer = 8.0;
       nextObstacleSpawnTimer = 1.6;
@@ -3658,11 +3697,11 @@
       player.coffeeTimer = 0;
       player.shieldTimer = 0;
 
-      const initScale = getDragonFlightMetrics(dragon).dScale;
+      const initMetrics = getDragonFlightMetrics(dragon);
       dragon.x = CONFIG.DRAGON_DEFAULT_X;
       dragon.targetX = CONFIG.DRAGON_DEFAULT_X;
-      dragon.visualX = Math.max(48, player.x - (148 * initScale + 26));
-      dragon.baseY = Math.round(V_HEIGHT * 0.43);
+      dragon.visualX = Math.max(42, player.x - (148 * initMetrics.dScale + 18));
+      dragon.baseY = initMetrics.baseY;
       dragon.y = dragon.baseY;
       dragon.hoverTime = 0;
       dragon.flameTimer = 0;
@@ -3686,17 +3725,53 @@
       resetGameState();
       gameState = STATE.PLAYING;
 
-      document.getElementById('screen-wardrobe').classList.remove('active');
-      document.getElementById('screen-wardrobe').style.display = 'none';
-      document.getElementById('screen-start').classList.remove('active');
-      document.getElementById('screen-start').style.display = 'none';
-      document.getElementById('screen-lose').classList.remove('active');
-      document.getElementById('screen-graduation').classList.remove('active');
+      const wardrobeScreen = document.getElementById('screen-wardrobe');
+      wardrobeScreen.classList.remove('active');
+      wardrobeScreen.style.display = 'none';
+      const startScreen = document.getElementById('screen-start');
+      startScreen.classList.remove('active');
+      startScreen.style.display = 'none';
+      const loseScreen = document.getElementById('screen-lose');
+      loseScreen.classList.remove('active');
+      loseScreen.style.display = '';
+      const gradScreen = document.getElementById('screen-graduation');
+      gradScreen.classList.remove('active');
+      gradScreen.style.display = '';
       document.getElementById('hud').style.display = 'block';
 
       addFloatingText("RUN FOR YOUR GPA! 🏃🔥", V_WIDTH / 2, 220, "#ea4335", 22);
       dragonSay("Did you even start?", 3.0);
       sound.playDragonRoar();
+    }
+
+    function returnToHomeScreen() {
+      resetGameState();
+      gameState = STATE.TITLE;
+
+      document.getElementById('hud').style.display = 'none';
+      const loseScreen = document.getElementById('screen-lose');
+      if (loseScreen) {
+        loseScreen.classList.remove('active');
+        loseScreen.style.display = '';
+      }
+      const gradScreen = document.getElementById('screen-graduation');
+      if (gradScreen) {
+        gradScreen.classList.remove('active');
+        gradScreen.style.display = '';
+      }
+      const wardrobeScreen = document.getElementById('screen-wardrobe');
+      if (wardrobeScreen) {
+        wardrobeScreen.classList.remove('active');
+        wardrobeScreen.style.display = 'none';
+      }
+      const startScreen = document.getElementById('screen-start');
+      if (startScreen) {
+        startScreen.style.display = 'flex';
+        startScreen.classList.add('active');
+      }
+
+      updateWardrobeSystem();
+      renderWardrobePreviews();
     }
 
     function triggerGameOver(cause = "Caught by Deadline Dragon") {
@@ -3729,7 +3804,9 @@
       document.getElementById('stat-best-streak').textContent = `x${Math.min(8, 1 + Math.floor(bestStreak / 2))} (${bestStreak} streak)`;
       document.getElementById('stat-cause').textContent = cause;
 
-      document.getElementById('screen-lose').classList.add('active');
+      const loseScreen = document.getElementById('screen-lose');
+      loseScreen.style.display = 'flex';
+      loseScreen.classList.add('active');
     }
 
     /* ==========================================================================
@@ -3991,9 +4068,9 @@
       }
       dragonBubble.nextTauntTimer -= realDt;
       if (dragonBubble.nextTauntTimer <= 0 && gameState === STATE.PLAYING && !isTaskActive) {
-        const taunt = DRAGON_TAUNTS[Math.floor(Math.random() * DRAGON_TAUNTS.length)];
+        const taunt = pickDifferentDragonTaunt();
         dragonSay(taunt, 3.4);
-        dragonBubble.nextTauntTimer = 8.0 + Math.random() * 5.0;
+        dragonBubble.nextTauntTimer = 4.8 + Math.random() * 2.8;
       }
 
       // Task Active Countdown & Ticking Audio
@@ -4198,6 +4275,13 @@
 
     function updatePassiveVisuals(dt) {
       updateDragonFlight(dt);
+      if (gameState === STATE.TITLE) {
+        dragonBubble.nextTauntTimer -= dt;
+        if (dragonBubble.nextTauntTimer <= 0) {
+          dragonSay(pickDifferentDragonTaunt(), 3.4);
+          dragonBubble.nextTauntTimer = 4.5 + Math.random() * 2.5;
+        }
+      }
 
       for (let i = particles.length - 1; i >= 0; i--) {
         const p = particles[i];
@@ -4283,13 +4367,16 @@
     function getDragonFlightMetrics(d) {
       const threatRange = Math.max(1, CONFIG.DRAGON_CAUGHT_X - CONFIG.DRAGON_DEFAULT_X);
       const threatRatio = Math.max(0, Math.min(1, (d.x - CONFIG.DRAGON_DEFAULT_X) / threatRange));
-      const dScale = (deviceProfile.type === 'mobile' && deviceProfile.orientation === 'portrait')
-        ? 0.55
+      const isPortraitView = V_WIDTH < V_HEIGHT;
+      const dScale = isPortraitView
+        ? (deviceProfile.type === 'tablet' ? 0.54 : 0.48)
         : (deviceProfile.type === 'mobile' ? 0.55 : 0.62);
-      // Dragon sky anchor: ~43% of canvas height (middle altitude, cleanly above the runner and ground)
-      const baseY = Math.round(V_HEIGHT * 0.43);
+      // Dragon sky anchor: consistent middle height above ground across desktop, landscape, and portrait mobile
+      const baseY = isPortraitView
+        ? Math.max(deviceProfile.hudTopSafe + 60, Math.round(CONFIG.GROUND_Y - 210))
+        : Math.round(V_HEIGHT * 0.43);
       const flightY = baseY + Math.sin(d.hoverTime * 2) * 15;
-      const defaultBehindX = Math.max(48, player.x - (148 * dScale + 26));
+      const defaultBehindX = Math.max(42, player.x - (148 * dScale + 18));
       const renderX = Number.isFinite(d.visualX) ? d.visualX : defaultBehindX;
       const playerCenterX = player.x + CONFIG.PLAYER_WIDTH * 0.5;
       const facingSign = playerCenterX >= renderX ? 1 : -1;
@@ -4335,7 +4422,7 @@
       dragon.y = baseY + Math.sin(dragon.hoverTime * 2) * 15;
 
       // Follow the player's x with a small lag (lerp ~0.05) staying cleanly behind so dragon & fire chase him
-      const desiredVisualX = Math.max(48, player.x - (148 * dScale + 26) + threatRatio * 36 * dScale);
+      const desiredVisualX = Math.max(42, player.x - (148 * dScale + 18) + threatRatio * 34 * dScale);
       const chaseLerp = 1 - Math.pow(1 - 0.05, safeDt * 60);
       dragon.visualX += (desiredVisualX - dragon.visualX) * chaseLerp;
 
@@ -4412,15 +4499,22 @@
       // Subtle touch control hint on ground for touch devices in early seconds
       if (gameState === STATE.PLAYING && !isTaskActive && score < 300 && (deviceProfile.isTouch || V_WIDTH < 720)) {
         ctx.save();
-        ctx.font = 'bold 13px system-ui, -apple-system, sans-serif';
+        const compactHint = V_WIDTH < 460;
+        ctx.font = compactHint
+          ? 'bold 11px system-ui, -apple-system, sans-serif'
+          : 'bold 13px system-ui, -apple-system, sans-serif';
         ctx.fillStyle = 'rgba(15, 23, 42, 0.55)';
         ctx.textAlign = 'center';
-        ctx.fillText('TAP ANYWHERE TO JUMP · TAP AGAIN IN AIR FOR 2X JUMP', V_WIDTH / 2, CONFIG.GROUND_Y + 34);
+        ctx.fillText(
+          compactHint ? 'TAP TO JUMP · TAP IN AIR FOR 2X JUMP' : 'TAP ANYWHERE TO JUMP · TAP AGAIN IN AIR FOR 2X JUMP',
+          V_WIDTH / 2,
+          CONFIG.GROUND_Y + (compactHint ? 28 : 34)
+        );
         ctx.restore();
       }
 
       // Speech bubble attached to the dragon's head with tail pointing at the dragon's mouth
-      drawDragonSpeechBubble("Did you even start?");
+      drawDragonSpeechBubble(dragonBubble.text || "Did you even start?");
 
       drawParticles();
       drawFloatingTexts();
@@ -4443,15 +4537,22 @@
       ctx.fillStyle = grad;
       ctx.fillRect(-40, -40, V_WIDTH + 80, V_HEIGHT + 80);
 
+      const sunY = (V_WIDTH < V_HEIGHT)
+        ? Math.max(deviceProfile.hudTopSafe + 64, Math.min(260, CONFIG.GROUND_Y - 400))
+        : Math.max(70, CONFIG.GROUND_Y - 340);
+      const sunX = Math.min(V_WIDTH - 56, Math.max(V_WIDTH - 120, V_WIDTH * 0.80));
+      const sunR = V_WIDTH < 460 ? 32 : 42;
       ctx.fillStyle = isBossExamActive ? '#f87171' : '#fef08a';
       ctx.beginPath();
-      ctx.arc(Math.max(V_WIDTH - 120, V_WIDTH * 0.82), Math.max(70, CONFIG.GROUND_Y - 340), 42, 0, Math.PI * 2);
+      ctx.arc(sunX, sunY, sunR, 0, Math.PI * 2);
       ctx.fill();
     }
 
     function drawClouds() {
       ctx.fillStyle = isBossExamActive ? 'rgba(254, 202, 202, 0.6)' : 'rgba(255, 255, 255, 0.78)';
-      const cyBase = Math.max(60, CONFIG.GROUND_Y - 340);
+      const cyBase = (V_WIDTH < V_HEIGHT)
+        ? Math.max(deviceProfile.hudTopSafe + 56, Math.min(245, CONFIG.GROUND_Y - 410))
+        : Math.max(60, CONFIG.GROUND_Y - 340);
       const cloudSpan = Math.max(1200, V_WIDTH + 260);
       const cloudPositions = [
         { x: ((120 - bgLayers.clouds) % cloudSpan + cloudSpan) % cloudSpan - 110, y: cyBase, s: 0.9 },
@@ -5504,18 +5605,42 @@
       ctx.save();
       const mouthPos = dragonHeadLocalToWorld(148, 2 + dragon.jawOffset * 0.5, dragon);
 
-      const fontSize = V_WIDTH < 700 ? 12 : 14;
+      const fontSize = V_WIDTH < 700 ? 11.5 : 13.5;
+      const lineHeight = fontSize + 4;
       ctx.font = `bold ${fontSize}px system-ui, -apple-system, sans-serif`;
-      const textMetrics = ctx.measureText(text);
-      const bubbleW = Math.min(V_WIDTH - 20, Math.max(150, textMetrics.width + 26));
-      const bubbleH = V_WIDTH < 700 ? 34 : 38;
+
+      const maxBubbleW = Math.min(270, V_WIDTH - 24);
+      const maxTextW = Math.max(96, maxBubbleW - 24);
+      const words = String(text).split(/\s+/).filter(Boolean);
+      const lines = [];
+      let currentLine = '';
+      for (let i = 0; i < words.length; i++) {
+        const candidate = currentLine ? `${currentLine} ${words[i]}` : words[i];
+        if (ctx.measureText(candidate).width <= maxTextW || !currentLine) {
+          currentLine = candidate;
+        } else {
+          lines.push(currentLine);
+          currentLine = words[i];
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      if (lines.length === 0) lines.push(String(text));
+
+      let widestLine = 0;
+      for (let i = 0; i < lines.length; i++) {
+        widestLine = Math.max(widestLine, ctx.measureText(lines[i]).width);
+      }
+
+      const bubbleW = Math.min(V_WIDTH - 20, Math.max(132, widestLine + 24));
+      const bubbleH = Math.max(V_WIDTH < 700 ? 32 : 36, lines.length * lineHeight + 14);
 
       // Anchor beside/above dragon's head & mouth, strictly above the ground and fully on screen
       const margin = 10;
+      const topSafe = (gameState === STATE.PLAYING && deviceProfile.hudTopSafe) ? deviceProfile.hudTopSafe : margin;
       const rawBx = mouthPos.x + 14;
       const rawBy = mouthPos.y - bubbleH - 22;
       const bx = Math.max(margin, Math.min(V_WIDTH - bubbleW - margin, rawBx));
-      const by = Math.max(margin, Math.min(CONFIG.GROUND_Y - bubbleH - 28, rawBy));
+      const by = Math.max(topSafe, Math.min(CONFIG.GROUND_Y - bubbleH - 28, rawBy));
 
       // Compute tail attachment along the bottom edge pointing directly at the dragon's mouth
       const attachX = Math.max(bx + 16, Math.min(bx + bubbleW - 16, mouthPos.x + 22));
@@ -5552,11 +5677,14 @@
       ctx.fillStyle = '#ffffff';
       ctx.fillRect(baseLeftX - 1, by + bubbleH - 2, (baseRightX - baseLeftX) + 2, 4);
 
-      // Taunt text in dragon crimson
+      // Taunt text in dragon crimson (centered vertically across 1 or more lines)
       ctx.fillStyle = '#b91c1c';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, bx + bubbleW / 2, by + bubbleH / 2);
+      const firstLineY = by + bubbleH / 2 - ((lines.length - 1) * lineHeight) / 2;
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], bx + bubbleW / 2, firstLineY + i * lineHeight);
+      }
       ctx.restore();
     }
 
@@ -5685,12 +5813,12 @@
       const oldGroundY = CONFIG.GROUND_Y;
 
       if (cw < ch) {
-        // Portrait (Mobile or Portrait Tablet): crisp vertical frame matched 1:1 to screen aspect
-        V_WIDTH = deviceProfile.type === 'tablet' ? 680 : 560;
+        // Portrait (Mobile or Portrait Tablet): zoomed vertical frame for big, readable mobile gameplay & short sidewalk
+        V_WIDTH = deviceProfile.type === 'tablet' ? 520 : 380;
         V_HEIGHT = Math.max(540, Math.round(V_WIDTH * (ch / cw)));
-        CONFIG.GROUND_Y = Math.round(V_HEIGHT * 0.72);
-        CONFIG.PLAYER_X = deviceProfile.type === 'tablet' ? 215 : 185;
-        CONFIG.DRAGON_DEFAULT_X = CONFIG.PLAYER_X - 72;
+        CONFIG.GROUND_Y = Math.round(V_HEIGHT * (deviceProfile.type === 'tablet' ? 0.84 : 0.87));
+        CONFIG.PLAYER_X = deviceProfile.type === 'tablet' ? 190 : 152;
+        CONFIG.DRAGON_DEFAULT_X = CONFIG.PLAYER_X - 66;
         CONFIG.DRAGON_CAUGHT_X = CONFIG.PLAYER_X + 5;
       } else {
         // Landscape (Mobile Landscape, Tablet Landscape, Laptop/Desktop): exact aspect match
@@ -5727,7 +5855,7 @@
       const resizeMetrics = getDragonFlightMetrics(dragon);
       dragon.baseY = resizeMetrics.baseY;
       dragon.y = resizeMetrics.flightY;
-      dragon.visualX = Math.max(48, player.x - (148 * resizeMetrics.dScale + 26) + resizeMetrics.threatRatio * 36 * resizeMetrics.dScale);
+      dragon.visualX = Math.max(42, player.x - (148 * resizeMetrics.dScale + 18) + resizeMetrics.threatRatio * 34 * resizeMetrics.dScale);
 
       // Exact physical-pixel canvas bitmap size with 1:1 coordinate transform (zero CSS stretch blur)
       canvas.width = Math.max(1, Math.round(cw * dpr));
@@ -5741,7 +5869,14 @@
     }
 
     window.addEventListener('resize', handleResize);
+    window.addEventListener('load', handleResize);
     window.addEventListener('orientationchange', () => setTimeout(handleResize, 120));
+    if (typeof ResizeObserver !== 'undefined') {
+      const wrapEl = document.getElementById('canvas-wrapper');
+      if (wrapEl) {
+        new ResizeObserver(() => handleResize()).observe(wrapEl);
+      }
+    }
 
     // Mute button
     const btnAudio = document.getElementById('btn-audio');
@@ -5763,6 +5898,15 @@
       sound.init();
       startEndlessRun();
     });
+
+    const btnHomeLose = document.getElementById('btn-home-lose');
+    if (btnHomeLose) {
+      btnHomeLose.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sound.init();
+        returnToHomeScreen();
+      });
+    }
 
     // Wardrobe Buttons & Navigation
     document.getElementById('btn-open-wardrobe').addEventListener('click', (e) => {
@@ -5864,6 +6008,15 @@
       document.getElementById('screen-graduation').classList.remove('active');
       startEndlessRun();
     });
+
+    const btnGradHome = document.getElementById('btn-grad-home');
+    if (btnGradHome) {
+      btnGradHome.addEventListener('click', (e) => {
+        e.stopPropagation();
+        sound.init();
+        returnToHomeScreen();
+      });
+    }
 
     function showToast(customMsg) {
       const toast = document.getElementById('copy-toast');
