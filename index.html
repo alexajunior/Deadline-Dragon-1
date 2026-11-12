@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>Deadline Dragon — Run For Your Deadline!</title>
-  <meta name="description" content="Survive the endless campus sprint, solve rapid-fire academic tasks under pressure, and outrun the Deadline Dragon by Softpear.">
-  <meta property="og:title" content="Deadline Dragon by Softpear">
+  <meta name="description" content="Survive the endless campus sprint, solve rapid-fire academic tasks under pressure, and outrun the Deadline Dragon.">
+  <meta property="og:title" content="Deadline Dragon">
   <meta property="og:description" content="Run free. Grab a task and you have seconds to solve it, or the dragon gets you.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
@@ -1420,9 +1420,6 @@
       <div id="flash-overlay"></div>
       <div id="close-call-banner">⚡ CLOSE CALL! +1.0s SURVIVAL</div>
 
-      <!-- Softpear Watermark in corner -->
-      <div id="watermark">Softpear</div>
-
       <!-- Academic Milestone Announcement Banner -->
       <div id="milestone-banner" class="milestone-banner">
         <div class="milestone-banner-badge" id="banner-badge">🎉 MILESTONE REACHED</div>
@@ -1532,7 +1529,6 @@
         <div class="modal-card">
           <div class="hero-badge">🐲🔥</div>
           <h1 class="game-title">Deadline <span class="dragon-txt">Dragon</span></h1>
-          <div class="branding-subtext">by Softpear</div>
           <p class="tagline">Run free. Grab a task and you have seconds to solve it, or the dragon gets you.</p>
 
           <!-- Cloud Save & Google Account Bar -->
@@ -1606,7 +1602,6 @@
         <div class="modal-card wardrobe-modal">
           <div class="hero-badge" style="background: linear-gradient(135deg, #3b82f6, #8b5cf6); color: white;">👔✨</div>
           <h1 class="game-title">Runner Wardrobe</h1>
-          <div class="branding-subtext">Deadline Dragon by Softpear</div>
           <p class="tagline">Choose what you want to wear on the run! Unlock premium academic attire by scoring higher credits.</p>
 
           <div class="wardrobe-content-container">
@@ -1706,7 +1701,6 @@
         <div class="modal-card">
           <div class="hero-badge">🔥💀</div>
           <h1 class="game-title" style="color: #ea4335;">Deadline Missed!</h1>
-          <div class="branding-subtext" style="color: #94a3b8;">Softpear Arcade</div>
           <p id="lose-subtitle" class="tagline">The Deadline Dragon caught you in the middle of procrastination.</p>
 
           <div class="breakdown-card">
@@ -2907,8 +2901,8 @@
       x: CONFIG.DRAGON_DEFAULT_X,
       targetX: CONFIG.DRAGON_DEFAULT_X,
       visualX: Math.max(48, CONFIG.PLAYER_X - 82),
-      baseY: Math.round(V_HEIGHT * 0.27),
-      y: Math.round(V_HEIGHT * 0.27),
+      baseY: Math.round(V_HEIGHT * 0.43),
+      y: Math.round(V_HEIGHT * 0.43),
       hoverTime: 0,
       flameTimer: 0,
       jawOffset: 0,
@@ -3669,8 +3663,8 @@
       const initScale = getDragonFlightMetrics(dragon).dScale;
       dragon.x = CONFIG.DRAGON_DEFAULT_X;
       dragon.targetX = CONFIG.DRAGON_DEFAULT_X;
-      dragon.visualX = Math.max(48, player.x - 105 * initScale);
-      dragon.baseY = Math.round(V_HEIGHT * 0.27);
+      dragon.visualX = Math.max(36, player.x - (165 * initScale + 30));
+      dragon.baseY = Math.round(V_HEIGHT * 0.43);
       dragon.y = dragon.baseY;
       dragon.hoverTime = 0;
       dragon.flameTimer = 0;
@@ -4292,12 +4286,13 @@
       const threatRange = Math.max(1, CONFIG.DRAGON_CAUGHT_X - CONFIG.DRAGON_DEFAULT_X);
       const threatRatio = Math.max(0, Math.min(1, (d.x - CONFIG.DRAGON_DEFAULT_X) / threatRange));
       const dScale = (deviceProfile.type === 'mobile' && deviceProfile.orientation === 'portrait')
-        ? 0.68
-        : (deviceProfile.type === 'mobile' ? 0.68 : 0.78);
-      // Dragon sky anchor: ~27% of canvas height (25-30% range), strictly independent of groundY
-      const baseY = Math.round(V_HEIGHT * 0.27);
+        ? 0.44
+        : (deviceProfile.type === 'mobile' ? 0.44 : 0.50);
+      // Dragon sky anchor: ~43% of canvas height (middle altitude, cleanly above the runner and ground)
+      const baseY = Math.round(V_HEIGHT * 0.43);
       const flightY = baseY + Math.sin(d.hoverTime * 2) * 15;
-      const renderX = Number.isFinite(d.visualX) ? d.visualX : Math.max(48, player.x - 105 * dScale);
+      const defaultBehindX = Math.max(36, player.x - (165 * dScale + 30));
+      const renderX = Number.isFinite(d.visualX) ? d.visualX : defaultBehindX;
       const playerCenterX = player.x + CONFIG.PLAYER_WIDTH * 0.5;
       const facingSign = playerCenterX >= renderX ? 1 : -1;
       return { threatRatio, baseY, flightY, dScale, renderX, facingSign };
@@ -4306,7 +4301,7 @@
     function dragonHeadLocalToWorld(lx, ly, d) {
       const { flightY, dScale, renderX, facingSign } = getDragonFlightMetrics(d);
       const bodyTilt = Math.sin(d.hoverTime * 2) * 0.03;
-      const headTilt = 0.28; // Neck & head tilted down toward the running player
+      const headTilt = 0; // Level sky-chase alignment so fire trails behind the runner horizontally
       // Pivot neck/head around local (38, -8)
       const px = lx - 38;
       const py = ly + 8;
@@ -4341,8 +4336,8 @@
       dragon.baseY = baseY;
       dragon.y = baseY + Math.sin(dragon.hoverTime * 2) * 15;
 
-      // Follow the player's x with a small lag (lerp ~0.05) so it looks like it's chasing
-      const desiredVisualX = Math.max(40, player.x - 105 * dScale + threatRatio * 55 * dScale);
+      // Follow the player's x with a small lag (lerp ~0.05) staying cleanly behind so dragon & fire chase him
+      const desiredVisualX = Math.max(36, player.x - (165 * dScale + 30) + threatRatio * 42 * dScale);
       const chaseLerp = 1 - Math.pow(1 - 0.05, safeDt * 60);
       dragon.visualX += (desiredVisualX - dragon.visualX) * chaseLerp;
 
@@ -4367,29 +4362,27 @@
         : 0;
       const intensity = Math.max(0.25, Math.min(1, 0.25 + timerUrgency * 0.75 + threatRatio * 0.35));
 
-      // Keep 30-50 continuous fire-breath particles alive aimed down from mouth toward player
+      // Keep 30-50 continuous fire-breath particles chasing horizontally behind the player (never falling onto him)
       const targetParticleCount = Math.round(30 + intensity * 20);
+      const { facingSign } = getDragonFlightMetrics(dragon);
       const mouthPos = dragonHeadLocalToWorld(148, 2 + dragon.jawOffset * 0.5, dragon);
-      const targetX = player.x + CONFIG.PLAYER_WIDTH * 0.5;
-      const targetY = player.y + CONFIG.PLAYER_HEIGHT * 0.35;
-      const baseAngle = Math.atan2(targetY - mouthPos.y, targetX - mouthPos.x);
-      const distToPlayer = Math.max(80, Math.hypot(targetX - mouthPos.x, targetY - mouthPos.y));
+      const baseAngle = facingSign >= 0 ? -0.02 : (Math.PI + 0.02);
 
       const deficit = Math.max(0, targetParticleCount - dragonFireParticles.length);
       const spawnCount = Math.min(8, Math.max(dragonFireParticles.length < 30 ? 4 : 2, deficit));
       for (let s = 0; s < spawnCount && dragonFireParticles.length < 50; s++) {
-        const maxLife = 0.52 + Math.random() * 0.16; // ~0.6s lifespan
-        const spread = (Math.random() - 0.5) * (0.30 + intensity * 0.14);
+        const maxLife = 0.50 + Math.random() * 0.16; // ~0.58s lifespan
+        const spread = (Math.random() - 0.5) * (0.14 + intensity * 0.06);
         const angle = baseAngle + spread;
-        const speed = (distToPlayer / maxLife) * (0.68 + Math.random() * 0.30 + intensity * 0.18);
+        const speed = (180 + intensity * 100) * (0.85 + Math.random() * 0.30);
         dragonFireParticles.push({
-          x: mouthPos.x + (Math.random() - 0.5) * 4,
-          y: mouthPos.y + (Math.random() - 0.5) * 4,
+          x: mouthPos.x + (Math.random() - 0.5) * 3,
+          y: mouthPos.y + (Math.random() - 0.5) * 3,
           vx: Math.cos(angle) * speed,
           vy: Math.sin(angle) * speed,
           life: maxLife,
           maxLife: maxLife,
-          startSize: (7 + intensity * 5) * dScale * (0.85 + Math.random() * 0.35),
+          startSize: (6 + intensity * 4) * (0.85 + Math.random() * 0.35),
           intensity: intensity
         });
       }
@@ -5383,10 +5376,10 @@
       ctx.fill();
       ctx.restore();
 
-      // 7-9. Neck & Horned Head tilted down toward the player below
+      // 7-9. Neck & Horned Head aligned horizontally in sky chase posture
       ctx.save();
       ctx.translate(38, -8);
-      ctx.rotate(0.28);
+      ctx.rotate(0);
       ctx.translate(-38, 8);
 
       // 7. Muscular Neck
@@ -5736,7 +5729,7 @@
       const resizeMetrics = getDragonFlightMetrics(dragon);
       dragon.baseY = resizeMetrics.baseY;
       dragon.y = resizeMetrics.flightY;
-      dragon.visualX = Math.max(40, player.x - 105 * resizeMetrics.dScale + resizeMetrics.threatRatio * 55 * resizeMetrics.dScale);
+      dragon.visualX = Math.max(36, player.x - (165 * resizeMetrics.dScale + 30) + resizeMetrics.threatRatio * 42 * resizeMetrics.dScale);
 
       // Exact physical-pixel canvas bitmap size with 1:1 coordinate transform (zero CSS stretch blur)
       canvas.width = Math.max(1, Math.round(cw * dpr));
@@ -5844,7 +5837,7 @@
     document.getElementById('btn-copy-result').addEventListener('click', (e) => {
       e.stopPropagation();
       const currentMilestone = getMilestone(score);
-      const text = `I survived until ${currentMilestone.name} and solved ${tasksSolvedCount} tasks in Deadline Dragon by Softpear. Can you beat me?`;
+      const text = `I survived until ${currentMilestone.name} and solved ${tasksSolvedCount} tasks in Deadline Dragon. Can you beat me?`;
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(text).then(() => showToast("Result copied to clipboard! 📋"));
