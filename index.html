@@ -9,8 +9,6 @@
   <meta property="og:description" content="Run free. Grab a task and you have seconds to solve it, or the dragon gets you.">
   <meta property="og:type" content="website">
   <meta name="twitter:card" content="summary_large_image">
-  <link rel="canonical" href="https://softpear.app/">
-  <meta property="og:url" content="https://softpear.app/">
   <style>
     /* ==========================================================================
        RESET & BASE LAYOUT
@@ -3663,7 +3661,7 @@
       const initScale = getDragonFlightMetrics(dragon).dScale;
       dragon.x = CONFIG.DRAGON_DEFAULT_X;
       dragon.targetX = CONFIG.DRAGON_DEFAULT_X;
-      dragon.visualX = Math.max(36, player.x - (165 * initScale + 30));
+      dragon.visualX = Math.max(48, player.x - (148 * initScale + 26));
       dragon.baseY = Math.round(V_HEIGHT * 0.43);
       dragon.y = dragon.baseY;
       dragon.hoverTime = 0;
@@ -4286,12 +4284,12 @@
       const threatRange = Math.max(1, CONFIG.DRAGON_CAUGHT_X - CONFIG.DRAGON_DEFAULT_X);
       const threatRatio = Math.max(0, Math.min(1, (d.x - CONFIG.DRAGON_DEFAULT_X) / threatRange));
       const dScale = (deviceProfile.type === 'mobile' && deviceProfile.orientation === 'portrait')
-        ? 0.44
-        : (deviceProfile.type === 'mobile' ? 0.44 : 0.50);
+        ? 0.55
+        : (deviceProfile.type === 'mobile' ? 0.55 : 0.62);
       // Dragon sky anchor: ~43% of canvas height (middle altitude, cleanly above the runner and ground)
       const baseY = Math.round(V_HEIGHT * 0.43);
       const flightY = baseY + Math.sin(d.hoverTime * 2) * 15;
-      const defaultBehindX = Math.max(36, player.x - (165 * dScale + 30));
+      const defaultBehindX = Math.max(48, player.x - (148 * dScale + 26));
       const renderX = Number.isFinite(d.visualX) ? d.visualX : defaultBehindX;
       const playerCenterX = player.x + CONFIG.PLAYER_WIDTH * 0.5;
       const facingSign = playerCenterX >= renderX ? 1 : -1;
@@ -4337,7 +4335,7 @@
       dragon.y = baseY + Math.sin(dragon.hoverTime * 2) * 15;
 
       // Follow the player's x with a small lag (lerp ~0.05) staying cleanly behind so dragon & fire chase him
-      const desiredVisualX = Math.max(36, player.x - (165 * dScale + 30) + threatRatio * 42 * dScale);
+      const desiredVisualX = Math.max(48, player.x - (148 * dScale + 26) + threatRatio * 36 * dScale);
       const chaseLerp = 1 - Math.pow(1 - 0.05, safeDt * 60);
       dragon.visualX += (desiredVisualX - dragon.visualX) * chaseLerp;
 
@@ -5729,7 +5727,7 @@
       const resizeMetrics = getDragonFlightMetrics(dragon);
       dragon.baseY = resizeMetrics.baseY;
       dragon.y = resizeMetrics.flightY;
-      dragon.visualX = Math.max(36, player.x - (165 * resizeMetrics.dScale + 30) + resizeMetrics.threatRatio * 42 * resizeMetrics.dScale);
+      dragon.visualX = Math.max(48, player.x - (148 * resizeMetrics.dScale + 26) + resizeMetrics.threatRatio * 36 * resizeMetrics.dScale);
 
       // Exact physical-pixel canvas bitmap size with 1:1 coordinate transform (zero CSS stretch blur)
       canvas.width = Math.max(1, Math.round(cw * dpr));
