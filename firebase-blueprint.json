@@ -1,0 +1,156 @@
+{
+  "entities": {
+    "UserProgress": {
+      "title": "UserProgress",
+      "description": "Cloud-synced player progression, wardrobe attire, and unlocked items for Deadline Dragon.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the player.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "displayName": {
+          "type": "string",
+          "description": "Public runner display name.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "bestCredits": {
+          "type": "integer",
+          "description": "Highest academic credits achieved across all runs."
+        },
+        "bestMilestone": {
+          "type": "string",
+          "description": "Highest academic milestone reached.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "selectedOutfit": {
+          "type": "string",
+          "description": "Equipped outfit ID.",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "selectedHeadwear": {
+          "type": "string",
+          "description": "Equipped headwear ID.",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "selectedBack": {
+          "type": "string",
+          "description": "Equipped back accessory ID.",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "unlockedItems": {
+          "type": "array",
+          "description": "Bounded list of unlocked wardrobe attire IDs."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server creation timestamp."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server update timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "displayName",
+        "bestCredits",
+        "bestMilestone",
+        "selectedOutfit",
+        "selectedHeadwear",
+        "selectedBack",
+        "unlockedItems",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "LeaderboardEntry": {
+      "title": "LeaderboardEntry",
+      "description": "Immutable global Hall of Fame run record for Deadline Dragon.",
+      "type": "object",
+      "properties": {
+        "uid": {
+          "type": "string",
+          "description": "Firebase Auth UID of the runner who achieved this score.",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "playerName": {
+          "type": "string",
+          "description": "Runner display name shown on the leaderboard.",
+          "minLength": 1,
+          "maxLength": 40
+        },
+        "credits": {
+          "type": "integer",
+          "description": "Total academic credits earned in the run."
+        },
+        "milestone": {
+          "type": "string",
+          "description": "Academic milestone reached in the run.",
+          "minLength": 1,
+          "maxLength": 60
+        },
+        "tasksSolved": {
+          "type": "integer",
+          "description": "Number of academic tasks solved during the run."
+        },
+        "subject": {
+          "type": "string",
+          "description": "Selected academic subject.",
+          "enum": ["MATH", "SCIENCE", "CODING", "HISTORY", "MIXED"]
+        },
+        "outfit": {
+          "type": "string",
+          "description": "Outfit ID worn during the run.",
+          "minLength": 1,
+          "maxLength": 32,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server submission timestamp."
+        }
+      },
+      "required": [
+        "uid",
+        "playerName",
+        "credits",
+        "milestone",
+        "tasksSolved",
+        "subject",
+        "outfit",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/UserProgress"
+      },
+      "description": "Stores each signed-in player's non-PII academic best score, milestone, and wardrobe customizations."
+    },
+    "/leaderboard/{entryId}": {
+      "schema": {
+        "$ref": "#/entities/LeaderboardEntry"
+      },
+      "description": "Stores immutable global Hall of Fame leaderboard run records."
+    }
+  }
+}

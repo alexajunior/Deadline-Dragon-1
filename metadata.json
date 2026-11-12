@@ -1,0 +1,6 @@
+{
+  "name": "Deadline Dragon",
+  "description": "Survive the endless academic sprint, outrun the Deadline Dragon by Softpear, solve rapid-fire tasks under pressure, unlock custom runner attires and the ultimate Valedictorian Regalia across 100,000 Credits.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

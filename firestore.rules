@@ -1,0 +1,117 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Safety Net (Default Deny Catch-All)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Global Helpers
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // 3. Entity Validation Blueprints
+    function isValidUserProgress(data) {
+      return data.keys().hasAll([
+          'uid', 'displayName', 'bestCredits', 'bestMilestone',
+          'selectedOutfit', 'selectedHeadwear', 'selectedBack',
+          'unlockedItems', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'bestCredits', 'bestMilestone',
+          'selectedOutfit', 'selectedHeadwear', 'selectedBack',
+          'unlockedItems', 'createdAt', 'updatedAt'
+        ])
+        && data.uid == request.auth.uid
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60
+        && data.bestCredits is int && data.bestCredits >= 0 && data.bestCredits <= 100000000
+        && data.bestMilestone is string && data.bestMilestone.size() >= 1 && data.bestMilestone.size() <= 60
+        && data.selectedOutfit is string && data.selectedOutfit.size() >= 1 && data.selectedOutfit.size() <= 32 && data.selectedOutfit.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.selectedHeadwear is string && data.selectedHeadwear.size() >= 1 && data.selectedHeadwear.size() <= 32 && data.selectedHeadwear.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.selectedBack is string && data.selectedBack.size() >= 1 && data.selectedBack.size() <= 32 && data.selectedBack.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.unlockedItems is list && data.unlockedItems.size() >= 1 && data.unlockedItems.size() <= 30 && data.unlockedItems[0] is string
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidLeaderboardEntry(data) {
+      return data.keys().hasAll([
+          'uid', 'playerName', 'credits', 'milestone',
+          'tasksSolved', 'subject', 'outfit', 'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'playerName', 'credits', 'milestone',
+          'tasksSolved', 'subject', 'outfit', 'createdAt'
+        ])
+        && data.uid == request.auth.uid
+        && data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 && data.uid.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.playerName is string && data.playerName.size() >= 1 && data.playerName.size() <= 40
+        && data.credits is int && data.credits >= 0 && data.credits <= 100000000
+        && data.milestone is string && data.milestone.size() >= 1 && data.milestone.size() <= 60
+        && data.tasksSolved is int && data.tasksSolved >= 0 && data.tasksSolved <= 10000
+        && data.subject in ['MATH', 'SCIENCE', 'CODING', 'HISTORY', 'MIXED']
+        && data.outfit is string && data.outfit.size() >= 1 && data.outfit.size() <= 32 && data.outfit.matches('^[a-zA-Z0-9_\\-]+$')
+        && data.createdAt is timestamp;
+    }
+
+    // 4. Collection Rules
+    match /users/{userId} {
+      allow get: if isValidId(userId) && isOwner(userId);
+      allow list: if false;
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProgress(incoming())
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProgress(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && incoming().bestCredits >= existing().bestCredits
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'bestCredits', 'bestMilestone',
+          'selectedOutfit', 'selectedHeadwear', 'selectedBack',
+          'unlockedItems', 'updatedAt'
+        ]);
+      allow delete: if false;
+    }
+
+    match /leaderboard/{entryId} {
+      allow get: if isValidId(entryId);
+      allow list: if resource.data.credits >= 0 && request.query.limit <= 25;
+      allow create: if isVerifiedUser()
+        && isValidId(entryId)
+        && isValidLeaderboardEntry(incoming())
+        && incoming().createdAt == request.time;
+      allow update: if false;
+      allow delete: if isVerifiedUser() && isValidId(entryId) && existing().uid == request.auth.uid;
+    }
+  }
+}
