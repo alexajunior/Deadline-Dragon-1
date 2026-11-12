@@ -52,7 +52,7 @@ function dispatch(name: string, detail: unknown) {
 
 async function refreshLeaderboard(): Promise<LeaderboardRecord[]> {
   try {
-    const entries = await fetchGlobalLeaderboard(10);
+    const entries = await fetchGlobalLeaderboard(25);
     dispatch('softpear:leaderboard-updated', entries);
     return entries;
   } catch {

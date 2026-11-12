@@ -1752,17 +1752,21 @@
               <span id="stat-cause" class="breakdown-val danger">Caught on track</span>
             </div>
 
-            <!-- Hall of Fame Leaderboard (Local Past Runs & Global Firebase Top 10) -->
+            <!-- Hall of Fame Leaderboard (My Top Runs & Global Leaderboard) -->
             <div style="margin-top: 10px;">
               <div class="config-title" style="margin-bottom: 6px; align-items: center;">
                 <div style="display:flex; gap:4px;">
-                  <button type="button" id="tab-lb-local" class="pill-btn selected" style="padding:3px 8px; font-size:10px;">🏠 Local Runs</button>
-                  <button type="button" id="tab-lb-global" class="pill-btn" style="padding:3px 8px; font-size:10px;">🌍 Global Top 10</button>
+                  <button type="button" id="tab-lb-global" class="pill-btn selected" style="padding:3px 8px; font-size:10px;">🌍 Leaderboard</button>
+                  <button type="button" id="tab-lb-local" class="pill-btn" style="padding:3px 8px; font-size:10px;">🏆 My Runs</button>
                 </div>
-                <span id="stat-alltime-high" style="color: #16a34a; font-weight: 800;">Best: 0</span>
+                <span id="stat-alltime-high" style="color: #16a34a; font-weight: 800;">Not stored (Guest)</span>
               </div>
               <div class="leaderboard-box" id="leaderboard-container">
                 <!-- Dynamically populated rows -->
+              </div>
+              <div id="lose-guest-banner" style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-top:6px; padding:6px 10px; border-radius:8px; background:#fffbeb; border:1px solid #fde68a; font-size:11px; color:#92400e; font-weight:700; text-align:left;">
+                <span>🔒 Score shown above is not stored. Sign in to save future runs.</span>
+                <button type="button" id="btn-lose-signin" class="pill-btn selected" style="padding:4px 9px; font-size:10.5px; flex-shrink:0;">Sign in with Google</button>
               </div>
             </div>
           </div>
@@ -2522,12 +2526,12 @@
     let lastTime = 0;
     let screenShake = 0;
 
-    // Selected Academic Subject & Custom Runner Wardrobe
+    // Selected Academic Subject & Custom Runner Wardrobe (only persisted when signed in)
     let selectedSubject = 'math';
-    let selectedSkin = localStorage.getItem('deadline_dragon_skin') || 'hoodie';
-    let selectedOutfit = localStorage.getItem('deadline_dragon_outfit') || (selectedSkin === 'sunglasses' ? 'cyber' : (selectedSkin === 'cape' ? 'varsity' : 'hoodie'));
-    let selectedHeadwear = localStorage.getItem('deadline_dragon_headwear') || (selectedSkin === 'sunglasses' ? 'sunglasses' : 'cap');
-    let selectedBack = localStorage.getItem('deadline_dragon_back') || (selectedSkin === 'cape' ? 'cape' : 'backpack');
+    let selectedOutfit = 'hoodie';
+    let selectedHeadwear = 'cap';
+    let selectedBack = 'backpack';
+    let selectedSkin = selectedOutfit;
 
     // Input Responsiveness, Jump Buffering & Coyote Time
     let jumpBufferTimer = 0; // 0.20s window to buffer a jump right before landing
@@ -2538,10 +2542,83 @@
     let inspectingItem = { type: 'sets', id: 'valedictorian_set' };
     let previewAnimTimer = 0;
 
-    let bestHighScore = parseInt(localStorage.getItem('deadline_dragon_best_credits') || localStorage.getItem('deadline_dragon_highscore') || '0', 10);
-    let bestMilestoneReached = localStorage.getItem('deadline_dragon_best_milestone') || 'Orientation Week';
-    let runHistory = JSON.parse(localStorage.getItem('deadline_dragon_history') || '[]');
-    let acknowledgedUnlocks = new Set(JSON.parse(localStorage.getItem('deadline_dragon_unlocked_items') || '["hoodie", "cap", "headband", "backpack", "starter"]'));
+    let bestHighScore = 0;
+    let bestMilestoneReached = 'Orientation Week';
+    let runHistory = [];
+    let acknowledgedUnlocks = new Set(['hoodie', 'cap', 'headband', 'backpack', 'starter']);
+    let liveCloudSyncCooldown = 4.0;
+    let lastLiveCloudSyncScore = 0;
+
+    function isGoogleSignedIn() {
+      return Boolean(window.SoftpearFirebase && window.SoftpearFirebase.isSignedIn());
+    }
+
+    function getSignedInUser() {
+      return (window.SoftpearFirebase && window.SoftpearFirebase.getUser()) || null;
+    }
+
+    function saveSignedInLocalCache() {
+      const user = getSignedInUser();
+      if (!user || !user.uid) return;
+      const uid = user.uid;
+      try {
+        localStorage.setItem(`deadline_dragon_best_credits_${uid}`, String(bestHighScore));
+        localStorage.setItem(`deadline_dragon_best_milestone_${uid}`, bestMilestoneReached);
+        localStorage.setItem(`deadline_dragon_history_${uid}`, JSON.stringify(runHistory));
+        localStorage.setItem(`deadline_dragon_unlocked_items_${uid}`, JSON.stringify(Array.from(acknowledgedUnlocks)));
+        localStorage.setItem(`deadline_dragon_outfit_${uid}`, selectedOutfit);
+        localStorage.setItem(`deadline_dragon_headwear_${uid}`, selectedHeadwear);
+        localStorage.setItem(`deadline_dragon_back_${uid}`, selectedBack);
+      } catch (e) {}
+    }
+
+    function loadSignedInLocalCache(uid) {
+      if (!uid) return;
+      try {
+        const cachedCredits = parseInt(localStorage.getItem(`deadline_dragon_best_credits_${uid}`) || '0', 10);
+        if (Number.isFinite(cachedCredits) && cachedCredits > bestHighScore) {
+          bestHighScore = cachedCredits;
+          bestMilestoneReached = localStorage.getItem(`deadline_dragon_best_milestone_${uid}`) || getMilestone(bestHighScore).name;
+        }
+        const cachedHistory = JSON.parse(localStorage.getItem(`deadline_dragon_history_${uid}`) || '[]');
+        if (Array.isArray(cachedHistory) && cachedHistory.length > 0) {
+          runHistory = cachedHistory
+            .slice()
+            .sort((a, b) => (Number(b.credits || b.score || 0) - Number(a.credits || a.score || 0)))
+            .slice(0, 10);
+        }
+        const cachedUnlocks = JSON.parse(localStorage.getItem(`deadline_dragon_unlocked_items_${uid}`) || 'null');
+        if (Array.isArray(cachedUnlocks)) {
+          cachedUnlocks.forEach((id) => acknowledgedUnlocks.add(id));
+        }
+        const cOutfit = localStorage.getItem(`deadline_dragon_outfit_${uid}`);
+        const cHead = localStorage.getItem(`deadline_dragon_headwear_${uid}`);
+        const cBack = localStorage.getItem(`deadline_dragon_back_${uid}`);
+        if (cOutfit && WARDROBE_DATA.outfits[cOutfit]) {
+          selectedOutfit = cOutfit;
+          selectedSkin = cOutfit;
+        }
+        if (cHead && WARDROBE_DATA.headwear[cHead]) selectedHeadwear = cHead;
+        if (cBack && WARDROBE_DATA.back[cBack]) selectedBack = cBack;
+      } catch (e) {}
+    }
+
+    function resetGuestProgressState() {
+      bestHighScore = 0;
+      bestMilestoneReached = 'Orientation Week';
+      runHistory = [];
+      acknowledgedUnlocks = new Set(['hoodie', 'cap', 'headband', 'backpack', 'starter']);
+      if (WARDROBE_DATA.outfits[selectedOutfit] && WARDROBE_DATA.outfits[selectedOutfit].unlockCredits > 0) {
+        selectedOutfit = 'hoodie';
+        selectedSkin = 'hoodie';
+      }
+      if (WARDROBE_DATA.headwear[selectedHeadwear] && WARDROBE_DATA.headwear[selectedHeadwear].unlockCredits > 0) {
+        selectedHeadwear = 'cap';
+      }
+      if (WARDROBE_DATA.back[selectedBack] && WARDROBE_DATA.back[selectedBack].unlockCredits > 0) {
+        selectedBack = 'backpack';
+      }
+    }
 
     /* ==========================================================================
        SECTION 5A: RUNNER WARDROBE DATA & ATTIRE UNLOCK TIERS
@@ -2893,6 +2970,13 @@
       // Show graduation celebration modal
       document.getElementById('screen-graduation').classList.add('active');
       dragonSay("WHAT?! You actually graduated?! 🔥🎓", 4.5);
+
+      if (isGoogleSignedIn() && score > bestHighScore) {
+        bestHighScore = Math.floor(score);
+        bestMilestoneReached = getMilestone(bestHighScore).name;
+        saveSignedInLocalCache();
+        syncCloudProgressSafe();
+      }
     }
 
     // Active Task State
@@ -3270,9 +3354,9 @@
       });
 
       if (newlyUnlocked) {
-        try {
-          localStorage.setItem('deadline_dragon_unlocked_items', JSON.stringify(Array.from(acknowledgedUnlocks)));
-        } catch(e) {}
+        if (isGoogleSignedIn()) {
+          saveSignedInLocalCache();
+        }
         showUnlockToast(newlyUnlocked);
         sound.playUnlock();
         updateWardrobeSystem();
@@ -3496,22 +3580,15 @@
       if (type === 'outfits') {
         selectedOutfit = id;
         selectedSkin = id;
-        try {
-          localStorage.setItem('deadline_dragon_outfit', id);
-          localStorage.setItem('deadline_dragon_skin', id);
-        } catch(e) {}
       } else if (type === 'headwear') {
         selectedHeadwear = id;
-        try {
-          localStorage.setItem('deadline_dragon_headwear', id);
-        } catch(e) {}
       } else if (type === 'back') {
         selectedBack = id;
-        try {
-          localStorage.setItem('deadline_dragon_back', id);
-        } catch(e) {}
       }
 
+      if (isGoogleSignedIn()) {
+        saveSignedInLocalCache();
+      }
       updateWardrobeSystem();
       renderWardrobeModal(inspectingTab);
       inspectWardrobeItem(type, id);
@@ -3527,21 +3604,28 @@
       selectedBack = setItem.back;
       selectedSkin = setItem.outfit;
 
-      try {
-        localStorage.setItem('deadline_dragon_outfit', setItem.outfit);
-        localStorage.setItem('deadline_dragon_headwear', setItem.headwear);
-        localStorage.setItem('deadline_dragon_back', setItem.back);
-        localStorage.setItem('deadline_dragon_skin', setItem.outfit);
-      } catch(e) {}
-
+      if (isGoogleSignedIn()) {
+        saveSignedInLocalCache();
+      }
       updateWardrobeSystem();
       renderWardrobeModal(inspectingTab);
       inspectWardrobeItem('sets', setId);
       syncCloudProgressSafe();
     }
 
-    let activeLeaderboardTab = 'local';
+    let activeLeaderboardTab = 'global';
     let globalLeaderboardEntries = [];
+
+    function setLeaderboardTab(tab) {
+      activeLeaderboardTab = tab === 'local' ? 'local' : 'global';
+      const tabLocal = document.getElementById('tab-lb-local');
+      const tabGlobal = document.getElementById('tab-lb-global');
+      if (tabLocal && tabGlobal) {
+        tabLocal.classList.toggle('selected', activeLeaderboardTab === 'local');
+        tabGlobal.classList.toggle('selected', activeLeaderboardTab === 'global');
+      }
+      renderLeaderboard();
+    }
 
     function syncCloudProgressSafe() {
       if (window.SoftpearFirebase && window.SoftpearFirebase.isSignedIn()) {
@@ -3557,65 +3641,94 @@
     }
 
     function saveRunToLeaderboard(finalScore, tasks, milestoneName) {
+      // Guest runs show their score on Game Over, but are NOT stored anywhere
+      if (!isGoogleSignedIn()) {
+        renderLeaderboard();
+        return;
+      }
+
+      const user = getSignedInUser();
       const entry = {
+        uid: user ? user.uid : '',
+        playerName: user ? user.displayName : 'Campus Runner',
         credits: Math.floor(finalScore),
         milestone: milestoneName,
         tasks: tasks,
+        tasksSolved: tasks,
         subject: selectedSubject.toUpperCase(),
+        outfit: selectedOutfit,
         date: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
       };
 
-      runHistory.unshift(entry);
-      if (runHistory.length > 8) runHistory.pop(); // keep top recent 8
+      runHistory.push(entry);
+      runHistory.sort((a, b) => (Number(b.credits || b.score || 0) - Number(a.credits || a.score || 0)));
+      if (runHistory.length > 10) runHistory = runHistory.slice(0, 10);
 
-      try {
-        localStorage.setItem('deadline_dragon_history', JSON.stringify(runHistory));
-        if (finalScore > bestHighScore) {
-          bestHighScore = Math.floor(finalScore);
-          bestMilestoneReached = milestoneName;
-          localStorage.setItem('deadline_dragon_highscore', bestHighScore.toString());
-          localStorage.setItem('deadline_dragon_best_credits', bestHighScore.toString());
-          localStorage.setItem('deadline_dragon_best_milestone', bestMilestoneReached);
-        }
-      } catch (e) {}
+      if (entry.credits > bestHighScore) {
+        bestHighScore = entry.credits;
+        bestMilestoneReached = milestoneName;
+      }
 
+      saveSignedInLocalCache();
       checkAttireUnlocks(bestHighScore);
       updateWardrobeSystem();
-      renderLeaderboard();
 
-      if (window.SoftpearFirebase && window.SoftpearFirebase.isSignedIn()) {
-        syncCloudProgressSafe();
-        void window.SoftpearFirebase.submitRun({
-          credits: entry.credits,
-          milestone: entry.milestone,
-          tasksSolved: entry.tasks,
-          subject: entry.subject,
-          outfit: selectedOutfit
-        });
-      }
+      // Optimistically arrange on the global leaderboard immediately, then persist & refresh from Firestore
+      globalLeaderboardEntries = [...globalLeaderboardEntries, entry]
+        .sort((a, b) => (Number(b.credits || 0) - Number(a.credits || 0)))
+        .slice(0, 25);
+
+      setLeaderboardTab('global');
+
+      syncCloudProgressSafe();
+      void window.SoftpearFirebase.submitRun({
+        credits: entry.credits,
+        milestone: entry.milestone,
+        tasksSolved: entry.tasks,
+        subject: entry.subject,
+        outfit: selectedOutfit
+      });
     }
 
     function renderLeaderboard() {
       const container = document.getElementById('leaderboard-container');
       container.innerHTML = '';
+      const signedIn = isGoogleSignedIn();
+      const currentUser = getSignedInUser();
+
+      const guestBanner = document.getElementById('lose-guest-banner');
+      if (guestBanner) {
+        guestBanner.style.display = signedIn ? 'none' : 'flex';
+      }
 
       if (activeLeaderboardTab === 'global') {
-        if (!globalLeaderboardEntries || globalLeaderboardEntries.length === 0) {
+        const sortedGlobal = [...(globalLeaderboardEntries || [])].sort(
+          (a, b) => (Number(b.credits || 0) - Number(a.credits || 0))
+        );
+        if (sortedGlobal.length === 0) {
           const emptyEl = document.createElement('div');
           emptyEl.style.cssText = 'color: #94a3b8; font-size: 11px; text-align: center; padding: 10px;';
-          emptyEl.textContent = 'No global scores yet. Sign in with Google and be the first!';
+          emptyEl.textContent = signedIn
+            ? 'No scores on the leaderboard yet. Play a run to claim #1!'
+            : 'No global scores yet. Sign in with Google to save & rank!';
           container.appendChild(emptyEl);
         } else {
-          globalLeaderboardEntries.forEach((run, idx) => {
+          sortedGlobal.forEach((run, idx) => {
+            const isMe = Boolean(currentUser && run.uid && run.uid === currentUser.uid);
             const row = document.createElement('div');
             row.className = 'leaderboard-row';
+            if (isMe) {
+              row.style.background = '#eff6ff';
+              row.style.borderRadius = '6px';
+              row.style.padding = '3px 6px';
+            }
 
             const leftSpan = document.createElement('span');
             const rankStrong = document.createElement('strong');
             rankStrong.className = 'leaderboard-rank';
             rankStrong.textContent = `#${idx + 1} `;
             leftSpan.appendChild(rankStrong);
-            leftSpan.appendChild(document.createTextNode(`${run.playerName} · ${Number(run.credits || 0).toLocaleString()} (${run.subject})`));
+            leftSpan.appendChild(document.createTextNode(`${run.playerName}${isMe ? ' (You)' : ''} · ${Number(run.credits || 0).toLocaleString()} (${run.subject})`));
 
             const rightSpan = document.createElement('span');
             rightSpan.textContent = `${run.milestone} · ${run.tasksSolved} solved`;
@@ -3625,32 +3738,42 @@
             container.appendChild(row);
           });
         }
-      } else if (runHistory.length === 0) {
-        container.innerHTML = '<div style="color: #94a3b8; font-size: 11px; text-align: center; padding: 10px;">No runs recorded yet. Start sprinting!</div>';
+      } else if (!signedIn) {
+        container.innerHTML = '<div style="color: #64748b; font-size: 11px; text-align: center; padding: 10px;">🔒 Guest mode: your score above is shown for this run, but not stored. Sign in with Google to save &amp; rank your runs!</div>';
       } else {
-        runHistory.forEach((run, idx) => {
-          const row = document.createElement('div');
-          row.className = 'leaderboard-row';
-          const creditsVal = run.credits || run.score || 0;
-          const milestoneVal = run.milestone || 'Orientation Week';
+        const sortedLocal = [...runHistory].sort(
+          (a, b) => (Number(b.credits || b.score || 0) - Number(a.credits || a.score || 0))
+        );
+        if (sortedLocal.length === 0) {
+          container.innerHTML = '<div style="color: #94a3b8; font-size: 11px; text-align: center; padding: 10px;">No saved runs yet. Start sprinting!</div>';
+        } else {
+          sortedLocal.forEach((run, idx) => {
+            const row = document.createElement('div');
+            row.className = 'leaderboard-row';
+            const creditsVal = run.credits || run.score || 0;
+            const milestoneVal = run.milestone || 'Orientation Week';
+            const tasksVal = run.tasks ?? run.tasksSolved ?? 0;
 
-          const leftSpan = document.createElement('span');
-          const rankStrong = document.createElement('strong');
-          rankStrong.className = 'leaderboard-rank';
-          rankStrong.textContent = `#${idx + 1} `;
-          leftSpan.appendChild(rankStrong);
-          leftSpan.appendChild(document.createTextNode(`${creditsVal.toLocaleString()} Credits (${run.subject})`));
+            const leftSpan = document.createElement('span');
+            const rankStrong = document.createElement('strong');
+            rankStrong.className = 'leaderboard-rank';
+            rankStrong.textContent = `#${idx + 1} `;
+            leftSpan.appendChild(rankStrong);
+            leftSpan.appendChild(document.createTextNode(`${creditsVal.toLocaleString()} Credits (${run.subject})`));
 
-          const rightSpan = document.createElement('span');
-          rightSpan.textContent = `${milestoneVal} · ${run.tasks} solved`;
+            const rightSpan = document.createElement('span');
+            rightSpan.textContent = `${milestoneVal} · ${tasksVal} solved`;
 
-          row.appendChild(leftSpan);
-          row.appendChild(rightSpan);
-          container.appendChild(row);
-        });
+            row.appendChild(leftSpan);
+            row.appendChild(rightSpan);
+            container.appendChild(row);
+          });
+        }
       }
 
-      document.getElementById('stat-alltime-high').textContent = `Best: ${bestHighScore.toLocaleString()} (${bestMilestoneReached})`;
+      document.getElementById('stat-alltime-high').textContent = signedIn
+        ? `Best: ${bestHighScore.toLocaleString()} (${bestMilestoneReached})`
+        : 'Not stored (Guest)';
     }
 
     /* ==========================================================================
@@ -3663,6 +3786,12 @@
       comboMultiplier = 1;
       tasksSolvedCount = 0;
       screenShake = 0;
+      liveCloudSyncCooldown = 4.0;
+      lastLiveCloudSyncScore = 0;
+      if (!isGoogleSignedIn()) {
+        resetGuestProgressState();
+        updateWardrobeSystem();
+      }
 
       currentMilestoneId = 'orientation';
       hasGraduatedThisRun = false;
@@ -3787,13 +3916,10 @@
       screenShake = 22;
 
       const currentMilestone = getMilestone(score);
-      if (score > bestHighScore) {
+      if (isGoogleSignedIn() && score > bestHighScore) {
         bestHighScore = Math.floor(score);
         bestMilestoneReached = currentMilestone.name;
-        try {
-          localStorage.setItem('deadline_dragon_best_credits', bestHighScore.toString());
-          localStorage.setItem('deadline_dragon_best_milestone', bestMilestoneReached);
-        } catch(e) {}
+        saveSignedInLocalCache();
       }
 
       saveRunToLeaderboard(score, tasksSolvedCount, currentMilestone.name);
@@ -4037,6 +4163,22 @@
       const deltaCredits = runCreditsSec * effectiveDt;
       score += deltaCredits;
       checkAttireUnlocks(score);
+
+      // Live cloud score sync while playing when signed in with Google
+      if (isGoogleSignedIn()) {
+        liveCloudSyncCooldown -= realDt;
+        const floorScore = Math.floor(score);
+        if (liveCloudSyncCooldown <= 0 && floorScore >= lastLiveCloudSyncScore + 50) {
+          lastLiveCloudSyncScore = floorScore;
+          liveCloudSyncCooldown = 4.0;
+          if (floorScore > bestHighScore) {
+            bestHighScore = floorScore;
+            bestMilestoneReached = getMilestone(bestHighScore).name;
+            saveSignedInLocalCache();
+            syncCloudProgressSafe();
+          }
+        }
+      }
 
       // Academic Milestone & Graduation Check
       const curMilestone = getMilestone(score);
@@ -6056,85 +6198,84 @@
       });
     }
 
+    const btnLoseSignIn = document.getElementById('btn-lose-signin');
+    if (btnLoseSignIn) {
+      btnLoseSignIn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        if (!window.SoftpearFirebase) return;
+        try {
+          await window.SoftpearFirebase.signIn();
+          showToast('Signed in! Next runs will sync & rank ☁️');
+        } catch (err) {
+          showToast('Sign-in cancelled or blocked');
+        }
+      });
+    }
+
     if (tabLbLocal && tabLbGlobal) {
       tabLbLocal.addEventListener('click', (e) => {
         e.stopPropagation();
-        activeLeaderboardTab = 'local';
-        tabLbLocal.classList.add('selected');
-        tabLbGlobal.classList.remove('selected');
-        renderLeaderboard();
+        setLeaderboardTab('local');
       });
       tabLbGlobal.addEventListener('click', (e) => {
         e.stopPropagation();
-        activeLeaderboardTab = 'global';
-        tabLbGlobal.classList.add('selected');
-        tabLbLocal.classList.remove('selected');
+        setLeaderboardTab('global');
         if (window.SoftpearFirebase) void window.SoftpearFirebase.refreshLeaderboard();
-        renderLeaderboard();
       });
     }
 
     window.addEventListener('softpear:auth-changed', (e) => {
       const user = e.detail;
       if (user) {
-        cloudAuthLabel.textContent = `☁️ ${user.displayName} (Cloud Synced)`;
+        cloudAuthLabel.textContent = `☁️ ${user.displayName} (Score Sync Active)`;
         btnCloudSignIn.style.display = 'none';
         btnCloudSignOut.style.display = 'inline-block';
+        loadSignedInLocalCache(user.uid);
+        checkAttireUnlocks(bestHighScore);
+        updateWardrobeSystem();
+        setLeaderboardTab('global');
       } else {
-        cloudAuthLabel.textContent = '☁️ Sign in to save attire & global scores';
+        cloudAuthLabel.textContent = '☁️ Sign in to save & rank your scores';
         btnCloudSignIn.style.display = 'inline-block';
         btnCloudSignOut.style.display = 'none';
+        resetGuestProgressState();
+        updateWardrobeSystem();
+        renderLeaderboard();
       }
     });
 
     window.addEventListener('softpear:cloud-progress', (e) => {
+      if (!isGoogleSignedIn()) return;
       const cloud = e.detail;
       if (!cloud) {
         syncCloudProgressSafe();
         return;
       }
-      let changed = false;
       const localHigher = bestHighScore > (cloud.bestCredits || 0);
 
       if (typeof cloud.bestCredits === 'number' && cloud.bestCredits > bestHighScore) {
         bestHighScore = Math.floor(cloud.bestCredits);
         bestMilestoneReached = cloud.bestMilestone || getMilestone(bestHighScore).name;
-        changed = true;
       }
       if (Array.isArray(cloud.unlockedItems)) {
         cloud.unlockedItems.forEach((id) => {
           if (!acknowledgedUnlocks.has(id)) {
             acknowledgedUnlocks.add(id);
-            changed = true;
           }
         });
       }
-      if (cloud.selectedOutfit && WARDROBE_DATA.outfits[cloud.selectedOutfit] && selectedOutfit !== cloud.selectedOutfit) {
+      if (cloud.selectedOutfit && WARDROBE_DATA.outfits[cloud.selectedOutfit]) {
         selectedOutfit = cloud.selectedOutfit;
         selectedSkin = cloud.selectedOutfit;
-        changed = true;
       }
-      if (cloud.selectedHeadwear && WARDROBE_DATA.headwear[cloud.selectedHeadwear] && selectedHeadwear !== cloud.selectedHeadwear) {
+      if (cloud.selectedHeadwear && WARDROBE_DATA.headwear[cloud.selectedHeadwear]) {
         selectedHeadwear = cloud.selectedHeadwear;
-        changed = true;
       }
-      if (cloud.selectedBack && WARDROBE_DATA.back[cloud.selectedBack] && selectedBack !== cloud.selectedBack) {
+      if (cloud.selectedBack && WARDROBE_DATA.back[cloud.selectedBack]) {
         selectedBack = cloud.selectedBack;
-        changed = true;
       }
 
-      if (changed) {
-        try {
-          localStorage.setItem('deadline_dragon_best_credits', bestHighScore.toString());
-          localStorage.setItem('deadline_dragon_highscore', bestHighScore.toString());
-          localStorage.setItem('deadline_dragon_best_milestone', bestMilestoneReached);
-          localStorage.setItem('deadline_dragon_unlocked_items', JSON.stringify(Array.from(acknowledgedUnlocks)));
-          localStorage.setItem('deadline_dragon_outfit', selectedOutfit);
-          localStorage.setItem('deadline_dragon_headwear', selectedHeadwear);
-          localStorage.setItem('deadline_dragon_back', selectedBack);
-        } catch (err) {}
-      }
-
+      saveSignedInLocalCache();
       checkAttireUnlocks(bestHighScore);
       updateWardrobeSystem();
       renderLeaderboard();
@@ -6145,10 +6286,38 @@
     });
 
     window.addEventListener('softpear:leaderboard-updated', (e) => {
-      globalLeaderboardEntries = Array.isArray(e.detail) ? e.detail : [];
-      if (activeLeaderboardTab === 'global') {
-        renderLeaderboard();
+      const entries = Array.isArray(e.detail) ? e.detail : [];
+      globalLeaderboardEntries = [...entries]
+        .sort((a, b) => (Number(b.credits || 0) - Number(a.credits || 0)))
+        .slice(0, 25);
+
+      const user = getSignedInUser();
+      if (user && user.uid) {
+        const myCloudRuns = globalLeaderboardEntries
+          .filter((item) => item.uid === user.uid)
+          .map((item) => ({
+            uid: item.uid,
+            playerName: item.playerName,
+            credits: Number(item.credits || 0),
+            milestone: item.milestone || 'Orientation Week',
+            tasks: Number(item.tasksSolved || 0),
+            tasksSolved: Number(item.tasksSolved || 0),
+            subject: item.subject || 'MIXED'
+          }));
+        if (myCloudRuns.length > 0) {
+          const merged = [...runHistory];
+          myCloudRuns.forEach((cr) => {
+            const exists = merged.some((r) => Number(r.credits || 0) === cr.credits && r.subject === cr.subject && Number(r.tasks ?? r.tasksSolved ?? 0) === cr.tasks);
+            if (!exists) merged.push(cr);
+          });
+          runHistory = merged
+            .sort((a, b) => (Number(b.credits || b.score || 0) - Number(a.credits || a.score || 0)))
+            .slice(0, 10);
+          saveSignedInLocalCache();
+        }
       }
+
+      renderLeaderboard();
     });
 
     // Initialize state
